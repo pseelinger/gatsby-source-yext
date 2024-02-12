@@ -8,9 +8,10 @@ const headers = {
 /**
  * Fetch utility for requests to the Yext api.
  */
-export async function fetchContent<T>(contentType: string, pluginOptions: IPluginOptionsInternal): Promise<T> {
+export async function fetchContent<T>(contentType: string, pluginOptions: IPluginOptionsInternal, pageToken = ''): Promise<T> {
   const { apiKey, accountId, apiVersion } = pluginOptions;
-  const response = await fetch(`https://api.yextapis.com/v2/accounts/${accountId}/${contentType}?api_key=${apiKey}&v=${apiVersion}`, {
+  const url = `https://api.yextapis.com/v2/accounts/${accountId}/${contentType}?api_key=${apiKey}&v=${apiVersion}&limit=25${pageToken ? `&pageToken=${pageToken}` : ''}`;
+  const response = await fetch(url, {
     method: `GET`,
     headers,
   })

@@ -30,6 +30,7 @@ type YextEntityResponseMeta = {
 type YextEntityResponse = {
     entities: YextEntity[]
     count: number
+    pageToken?: string
 }
 
 export type YextEntityRequestResponse = {
