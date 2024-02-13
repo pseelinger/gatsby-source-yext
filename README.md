@@ -2,9 +2,14 @@
 
 This source plugin for Gatsby will make Yext data available in your Gatsby site. Currently only supports retrieving entities.
 
+## Installation
+
+    yarn add pseelinger/gatsby-source-yext
+
+
+
 ## Configuration
 
-    ```javascript
     // In your gatsby-config.js
     module.exports = {
       plugins: [

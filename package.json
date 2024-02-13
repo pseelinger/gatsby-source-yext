@@ -1,6 +1,6 @@
 {
-  "name": "plugin",
-  "description": "An example Gatsby source plugin",
+  "name": "gatsby-source-yext",
+  "description": "Gatsby source plugin for Yext",
   "version": "0.1.0",
   "license": "MIT",
   "main": "./dist/gatsby-node.js",
