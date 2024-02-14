@@ -1,18 +1,41 @@
-import type { GatsbyNode } from "gatsby"
+import type { GatsbyNode, SourceNodesArgs } from "gatsby"
+import type { Reporter } from "gatsby-cli/lib/reporter/reporter";
 
 import { forEach, upperFirst } from "lodash"
 
-import type { IPluginOptionsInternal, YextEntityRequestResponse, YextEntity } from "./types";
+import type { IPluginOptionsInternal, YextContentEndpoint, YextDoc } from "./types";
 import { fetchContent } from "./utils";
 import { PLUGIN_NAME } from "./constants";
 
 let isFirstSource = true;
 
 export const sourceNodes: GatsbyNode[`sourceNodes`] = async (gatsbyApi, pluginOptions: IPluginOptionsInternal) => {
-    const { reporter, createNodeId, actions, getNodes } = gatsbyApi
-    const { createNode, touchNode } = actions
+    const { reporter, actions, getNodes } = gatsbyApi
+    const { touchNode } = actions
 
-    const sourcingTimer = reporter.activityTimer(`Sourcing entities from Yext`);
+    const { endpoints, apiKey, apiVersion, accountId } = pluginOptions;
+    let hasRequiredOptions = true;
+    if (!endpoints) {
+        reporter.panic(`${PLUGIN_NAME}: Missing required option "endpoints"`);
+        hasRequiredOptions = false;
+    }
+    if (!apiKey) {
+        reporter.panic(`${PLUGIN_NAME}: Missing required option "apiKey"`);
+        hasRequiredOptions = false;
+    }
+    if (!apiVersion) {
+        reporter.panic(`${PLUGIN_NAME}: Missing required option "apiVersion"`);
+        hasRequiredOptions = false;
+    }
+    if (!accountId) {
+        reporter.panic(`${PLUGIN_NAME}: Missing required option "accountId"`);
+        hasRequiredOptions = false;
+    }
+    if (!hasRequiredOptions) {
+        return;
+    }
+
+    const sourcingTimer = reporter.activityTimer(`Sourcing content from Yext`);
     sourcingTimer.start();
 
     if (isFirstSource) {
@@ -25,31 +48,54 @@ export const sourceNodes: GatsbyNode[`sourceNodes`] = async (gatsbyApi, pluginOp
         isFirstSource = false;
     }
 
-    let nextPageToken = '';
-    while (nextPageToken !== undefined) {
-        const response : YextEntityRequestResponse = await fetchContent("entities", pluginOptions, nextPageToken);
+    forEach(endpoints, async (contentEndpoint) => {
+        await fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter);
+    });
+
+    sourcingTimer.end();
+}
+
+async function fetchContentFromEndpoint(contentEndpoint: string, gatsbyApi: SourceNodesArgs, pluginOptions: IPluginOptionsInternal, reporter: Reporter) {
+    const { actions, createNodeId, createContentDigest } = gatsbyApi;
+    const { createNode } = actions;
+    const sourcingTimer = reporter.activityTimer(`${PLUGIN_NAME}: Fetching items from Yext content endpoint: ${contentEndpoint}`);
+    sourcingTimer.start();
+
+    let hasNextPage = true;
+    let pageToken = null;
+    while (hasNextPage) {
+        const response : YextContentEndpoint = await fetchContent(contentEndpoint, pluginOptions, pageToken);
         const { errors } = response.meta
 
         if (errors.length) {
-            sourcingTimer.panicOnBuild(`Error fetching entities from Yext: ${errors[0].message}`)
+            sourcingTimer.panicOnBuild(`${PLUGIN_NAME}: Error fetching content from Yext: ${errors[0].message}`)
         } else {
-            const { entities, pageToken } = response.response
-            nextPageToken = pageToken;
-            forEach(entities, (entity: YextEntity) => {
-                const nodeType = `Yext${upperFirst(entity.meta.entityType)}`;
+            const { docs, nextPageToken } = response.response
+            if (nextPageToken) {
+                pageToken = nextPageToken;
+            } else {
+                hasNextPage = false;
+            }
+            forEach(docs, (entity: YextDoc) => {
+                if (!entity.meta?.entityType?.id) {
+                    reporter.warn(`${PLUGIN_NAME}: Skipping entity missing entityType with id ${entity.id}. Did you include the "meta", "meta.entityType", and "meta.entityType.id" fields in your endpoint response?`);
+                    return;
+                }
+                const nodeType = `Yext${upperFirst(entity.meta.entityType.id)}`;
                 const node = {
                     ...entity,
-                    id: createNodeId(`${nodeType}-${entity.meta.id}`),
+                    id: createNodeId(`${nodeType}-${entity.id}`),
                     parent: null,
                     children: [],
                     internal: {
                         type: nodeType,
-                        contentDigest: gatsbyApi.createContentDigest(entity),
+                        contentDigest: createContentDigest(entity),
                     },
                 }
                 createNode(node);
             });
         }
     }
+
     sourcingTimer.end();
 }

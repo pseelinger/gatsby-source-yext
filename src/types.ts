@@ -1,56 +1,60 @@
-import type { PluginOptions as GatsbyDefaultPluginOptions, IPluginRefOptions } from "gatsby"
+import type {PluginOptions as GatsbyDefaultPluginOptions, IPluginRefOptions} from "gatsby"
 
-
-type YextEntityMeta = {
-  id: string,
-  accountId: string,
-  timestamp: string,
-  folderId: string,
-  countryCode: string,
-  language: string,
-  entityType: string,
+type YextEntityType = {
+    id: string,
+    uid: number
 }
 
-export type YextEntity = {
-  meta: YextEntityMeta
+type YextDocMeta = {
+    entityType: YextEntityType,
+    locale: string,
 }
 
-type YextEntityRequestError = {
-  code: number,
-  type: string,
-  message: string,
-  name: string,
+export type YextDoc = {
+    meta: YextDocMeta
+    id: string
+}
+
+type YextContentRequestError = {
+    code: number,
+    type: string,
+    message: string,
+    name: string,
 }
 
 type YextEntityResponseMeta = {
     uuid: string,
-    errors: YextEntityRequestError[],
+    errors: YextContentRequestError[],
 }
 
-type YextEntityResponse = {
-    entities: YextEntity[]
+type YextContentEndpointResponse = {
+    docs: YextDoc[]
     count: number
-    pageToken?: string
+    nextPageToken?: string
 }
 
-export type YextEntityRequestResponse = {
-    response: YextEntityResponse
+export type YextContentEndpoint = {
+    response: YextContentEndpointResponse
     meta: YextEntityResponseMeta
 }
 
 
 interface IPluginOptionsKeys {
-  apiKey: string,
-  accountId: string,
-  apiVersion: string
+    apiKey: string,
+    accountId: string,
+    apiVersion: string,
+    endpoints: string[],
+    pageLimit: number
 }
 
 /**
  * Gatsby expects the plugin options to be of type "PluginOptions" for gatsby-node APIs (e.g. sourceNodes)
  */
-export interface IPluginOptionsInternal extends IPluginOptionsKeys, GatsbyDefaultPluginOptions {}
+export interface IPluginOptionsInternal extends IPluginOptionsKeys, GatsbyDefaultPluginOptions {
+}
 
 /**
  * These are the public TypeScript types for consumption in gatsby-config
  */
-export interface IPluginOptions extends IPluginOptionsKeys, IPluginRefOptions {}
+export interface IPluginOptions extends IPluginOptionsKeys, IPluginRefOptions {
+}
