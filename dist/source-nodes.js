@@ -17,14 +17,18 @@ let isFirstSource = true;
 const sourceNodes = (gatsbyApi, pluginOptions) => __awaiter(void 0, void 0, void 0, function* () {
     const { reporter, actions, getNodes } = gatsbyApi;
     const { touchNode } = actions;
-    const { endpoints, apiKey, apiVersion, accountId } = pluginOptions;
+    const { api, endpoints, apiKey, apiVersion, accountId } = pluginOptions;
     let hasRequiredOptions = true;
-    if (!endpoints) {
-        reporter.panic(`${constants_1.PLUGIN_NAME}: Missing required option "endpoints"`);
+    if (!api) {
+        reporter.panic(`${constants_1.PLUGIN_NAME}: Missing required option "api". Use either "management" or "content-delivery"`);
         hasRequiredOptions = false;
     }
     if (!apiKey) {
         reporter.panic(`${constants_1.PLUGIN_NAME}: Missing required option "apiKey"`);
+        hasRequiredOptions = false;
+    }
+    if (api === 'content-delivery' && !endpoints) {
+        reporter.panic(`${constants_1.PLUGIN_NAME}: Missing required option "endpoints"`);
         hasRequiredOptions = false;
     }
     if (!apiVersion) {
@@ -49,18 +53,23 @@ const sourceNodes = (gatsbyApi, pluginOptions) => __awaiter(void 0, void 0, void
         });
         isFirstSource = false;
     }
-    (0, lodash_1.forEach)(endpoints, (contentEndpoint) => __awaiter(void 0, void 0, void 0, function* () {
-        yield fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter);
-    }));
+    if (api === 'content-delivery') {
+        yield Promise.all((0, lodash_1.forEach)(endpoints, (contentEndpoint) => __awaiter(void 0, void 0, void 0, function* () {
+            yield fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter);
+        })));
+    }
+    else {
+        yield fetchContentFromManagementApi(gatsbyApi, pluginOptions, reporter);
+    }
     sourcingTimer.end();
 });
 exports.sourceNodes = sourceNodes;
 function fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { actions, createNodeId, createContentDigest } = gatsbyApi;
-        const { createNode } = actions;
         const sourcingTimer = reporter.activityTimer(`${constants_1.PLUGIN_NAME}: Fetching items from Yext content endpoint: ${contentEndpoint}`);
         sourcingTimer.start();
+        const { createNodeId, createContentDigest, actions } = gatsbyApi;
+        const { createNode } = actions;
         let hasNextPage = true;
         let pageToken = null;
         while (hasNextPage) {
@@ -85,6 +94,35 @@ function fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, rep
                     }
                     const nodeType = `Yext${(0, lodash_1.upperFirst)(entity.meta.entityType.id)}`;
                     const node = Object.assign(Object.assign({}, entity), { id: createNodeId(`${nodeType}-${entity.id}`), parent: null, children: [], internal: {
+                            type: nodeType,
+                            contentDigest: createContentDigest(entity),
+                        } });
+                    createNode(node);
+                });
+            }
+        }
+        sourcingTimer.end();
+    });
+}
+function fetchContentFromManagementApi(gatsbyApi, pluginOptions, reporter) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { createNodeId, createContentDigest, actions } = gatsbyApi;
+        const { createNode } = actions;
+        const sourcingTimer = reporter.activityTimer(`${constants_1.PLUGIN_NAME}: Fetching entities from Yext Management API`);
+        sourcingTimer.start();
+        let nextPageToken = '';
+        while (nextPageToken !== undefined) {
+            const response = yield (0, utils_1.fetchManagementApi)('entities', pluginOptions, nextPageToken);
+            const { errors } = response.meta;
+            if (errors.length) {
+                reporter.panicOnBuild(`${constants_1.PLUGIN_NAME}: Error fetching entities from Yext: ${errors[0].message}`);
+            }
+            else {
+                const { entities, pageToken } = response.response;
+                nextPageToken = pageToken;
+                (0, lodash_1.forEach)(entities, (entity) => {
+                    const nodeType = `Yext${(0, lodash_1.upperFirst)(entity.meta.entityType)}`;
+                    const node = Object.assign(Object.assign({}, entity), { id: createNodeId(`${nodeType}-${entity.meta.id}`), parent: null, children: [], internal: {
                             type: nodeType,
                             contentDigest: createContentDigest(entity),
                         } });

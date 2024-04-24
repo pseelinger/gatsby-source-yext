@@ -23,6 +23,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "gatsby-source-filesystem": "^5.13.1",
     "node-fetch": "^2.6.8"
   },
   "devDependencies": {

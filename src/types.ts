@@ -5,6 +5,16 @@ type YextEntityType = {
     uid: number
 }
 
+type YextEntityMeta = {
+    id: string,
+    accountId: string,
+    timestamp: string,
+    folderId: string,
+    countryCode: string,
+    language: string,
+    entityType: string,
+}
+
 type YextDocMeta = {
     entityType: YextEntityType,
     locale: string,
@@ -13,6 +23,10 @@ type YextDocMeta = {
 export type YextDoc = {
     meta: YextDocMeta
     id: string
+}
+
+export type YextEntity = {
+    meta: YextEntityMeta
 }
 
 type YextContentRequestError = {
@@ -33,14 +47,41 @@ type YextContentEndpointResponse = {
     nextPageToken?: string
 }
 
+type YextEntityResponse = {
+    entities: YextEntity[]
+    count: number
+    pageToken?: string
+}
+
 export type YextContentEndpoint = {
     response: YextContentEndpointResponse
     meta: YextEntityResponseMeta
 }
 
+export type YextEntityRequestResponse = {
+    response: YextEntityResponse
+    meta: YextEntityResponseMeta
+}
 
+export type YextPhotoField = {
+    url: string,
+    sourceUrl?: string,
+    width: number,
+    height: number,
+}
+
+export type GatsbyYextEntity = {
+    id: string,
+    parent?: string,
+    children: string[],
+    internal: {
+        type: string,
+        contentDigest: string,
+    }
+}
 interface IPluginOptionsKeys {
     apiKey: string,
+    api: string,
     accountId: string,
     apiVersion: string,
     endpoints: string[],
