@@ -77,6 +77,7 @@ function fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, rep
             const { errors } = response.meta;
             if (errors.length) {
                 sourcingTimer.panicOnBuild(`${constants_1.PLUGIN_NAME}: Error fetching content from Yext: ${errors[0].message}`);
+                hasNextPage = false;
             }
             else {
                 const { docs, nextPageToken } = response.response;
@@ -110,16 +111,23 @@ function fetchContentFromManagementApi(gatsbyApi, pluginOptions, reporter) {
         const { createNode } = actions;
         const sourcingTimer = reporter.activityTimer(`${constants_1.PLUGIN_NAME}: Fetching entities from Yext Management API`);
         sourcingTimer.start();
-        let nextPageToken = '';
-        while (nextPageToken !== undefined) {
+        let hasNextPage = true;
+        let nextPageToken = null;
+        while (hasNextPage) {
             const response = yield (0, utils_1.fetchManagementApi)('entities', pluginOptions, nextPageToken);
             const { errors } = response.meta;
             if (errors.length) {
                 reporter.panicOnBuild(`${constants_1.PLUGIN_NAME}: Error fetching entities from Yext: ${errors[0].message}`);
+                hasNextPage = false;
             }
             else {
                 const { entities, pageToken } = response.response;
-                nextPageToken = pageToken;
+                if (!pageToken) {
+                    hasNextPage = false;
+                }
+                else {
+                    nextPageToken = pageToken;
+                }
                 (0, lodash_1.forEach)(entities, (entity) => {
                     const nodeType = `Yext${(0, lodash_1.upperFirst)(entity.meta.entityType)}`;
                     const node = Object.assign(Object.assign({}, entity), { id: createNodeId(`${nodeType}-${entity.meta.id}`), parent: null, children: [], internal: {

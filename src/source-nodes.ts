@@ -79,6 +79,7 @@ async function fetchContentFromEndpoint(contentEndpoint: string, gatsbyApi: Sour
 
         if (errors.length) {
             sourcingTimer.panicOnBuild(`${PLUGIN_NAME}: Error fetching content from Yext: ${errors[0].message}`)
+            hasNextPage = false;
         } else {
             const { docs, nextPageToken } = response.response
             if (nextPageToken) {
@@ -116,15 +117,21 @@ async function fetchContentFromManagementApi(gatsbyApi: SourceNodesArgs, pluginO
     const sourcingTimer = reporter.activityTimer(`${PLUGIN_NAME}: Fetching entities from Yext Management API`);
     sourcingTimer.start();
 
-    let nextPageToken = '';
-    while (nextPageToken !== undefined) {
+    let hasNextPage = true;
+    let nextPageToken = null;
+    while (hasNextPage) {
         const response : YextEntityRequestResponse = await fetchManagementApi('entities', pluginOptions, nextPageToken);
         const { errors } = response.meta
         if (errors.length) {
             reporter.panicOnBuild(`${PLUGIN_NAME}: Error fetching entities from Yext: ${errors[0].message}`)
+            hasNextPage = false;
         } else {
             const { entities, pageToken } = response.response
-            nextPageToken = pageToken;
+            if (!pageToken) {
+                hasNextPage = false;
+            } else {
+                nextPageToken = pageToken;
+            }
             forEach(entities, (entity) => {
                 const nodeType = `Yext${upperFirst(entity.meta.entityType)}`;
                 const node = {
