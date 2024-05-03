@@ -23,6 +23,11 @@ export type YextDoc = {
 export type YextEntity = {
     meta: YextEntityMeta;
 };
+export type YextFolder = {
+    id: string;
+    name: string;
+    parentId: string;
+};
 type YextContentRequestError = {
     code: number;
     type: string;
@@ -43,12 +48,17 @@ type YextEntityResponse = {
     count: number;
     pageToken?: string;
 };
+type YextFoldersResponse = {
+    folders: YextFolder[];
+    count: number;
+    pageToken?: string;
+};
 export type YextContentEndpoint = {
     response: YextContentEndpointResponse;
     meta: YextEntityResponseMeta;
 };
-export type YextEntityRequestResponse = {
-    response: YextEntityResponse;
+export type YextManagementAPIRequestResponse = {
+    response: YextEntityResponse | YextFoldersResponse;
     meta: YextEntityResponseMeta;
 };
 export type YextPhotoField = {

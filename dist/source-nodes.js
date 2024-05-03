@@ -54,12 +54,21 @@ const sourceNodes = (gatsbyApi, pluginOptions) => __awaiter(void 0, void 0, void
         isFirstSource = false;
     }
     if (api === 'content-delivery') {
-        yield Promise.all((0, lodash_1.forEach)(endpoints, (contentEndpoint) => __awaiter(void 0, void 0, void 0, function* () {
-            yield fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter);
-        })));
+        yield Promise.all((0, lodash_1.map)(endpoints, (contentEndpoint) => {
+            return new Promise((resolve) => __awaiter(void 0, void 0, void 0, function* () {
+                yield fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter);
+                resolve();
+            }));
+        }));
     }
     else {
-        yield fetchContentFromManagementApi(gatsbyApi, pluginOptions, reporter);
+        const contentTypes = ['entities', 'folders'];
+        yield Promise.all((0, lodash_1.map)(contentTypes, (contentType) => {
+            return new Promise((resolve) => __awaiter(void 0, void 0, void 0, function* () {
+                yield fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, reporter);
+                resolve();
+            }));
+        }));
     }
     sourcingTimer.end();
 });
@@ -105,7 +114,7 @@ function fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, rep
         sourcingTimer.end();
     });
 }
-function fetchContentFromManagementApi(gatsbyApi, pluginOptions, reporter) {
+function fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, reporter) {
     return __awaiter(this, void 0, void 0, function* () {
         const { createNodeId, createContentDigest, actions } = gatsbyApi;
         const { createNode } = actions;
@@ -114,25 +123,36 @@ function fetchContentFromManagementApi(gatsbyApi, pluginOptions, reporter) {
         let hasNextPage = true;
         let nextPageToken = null;
         while (hasNextPage) {
-            const response = yield (0, utils_1.fetchManagementApi)('entities', pluginOptions, nextPageToken);
+            const response = yield (0, utils_1.fetchManagementApi)(contentType, pluginOptions, nextPageToken);
             const { errors } = response.meta;
             if (errors.length) {
-                reporter.panicOnBuild(`${constants_1.PLUGIN_NAME}: Error fetching entities from Yext: ${errors[0].message}`);
+                reporter.panicOnBuild(`${constants_1.PLUGIN_NAME}: Error fetching ${contentType} from Yext: ${errors[0].message}`);
                 hasNextPage = false;
             }
             else {
-                const { entities, pageToken } = response.response;
+                const { pageToken } = response.response;
+                const contentNodes = response.response[contentType];
                 if (!pageToken) {
                     hasNextPage = false;
                 }
                 else {
                     nextPageToken = pageToken;
                 }
-                (0, lodash_1.forEach)(entities, (entity) => {
-                    const nodeType = `Yext${(0, lodash_1.upperFirst)(entity.meta.entityType)}`;
-                    const node = Object.assign(Object.assign({}, entity), { id: createNodeId(`${nodeType}-${entity.meta.id}`), parent: null, children: [], internal: {
+                (0, lodash_1.forEach)(contentNodes, (contentNode) => {
+                    let data = {}, nodeType, uniqueId;
+                    if (contentType === 'entities') {
+                        nodeType = `Yext${(0, lodash_1.upperFirst)(contentNode.meta.entityType)}`;
+                        uniqueId = contentNode.meta.id;
+                        data = contentNode;
+                    }
+                    else {
+                        nodeType = `YextFolder`;
+                        uniqueId = contentNode.id;
+                        data = contentNode;
+                    }
+                    const node = Object.assign(Object.assign({}, data), { id: createNodeId(`${nodeType}-${uniqueId}`), parent: null, children: [], internal: {
                             type: nodeType,
-                            contentDigest: createContentDigest(entity),
+                            contentDigest: createContentDigest(data),
                         } });
                     createNode(node);
                 });

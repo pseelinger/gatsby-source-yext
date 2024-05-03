@@ -3,7 +3,7 @@ import {map, upperFirst, keys, forEach, isArray, isObject} from "lodash";
 import { SourceNodesArgs } from "gatsby";
 import fetch, { HeadersInit } from "node-fetch"
 
-import type {IPluginOptionsInternal, YextDoc, YextPhotoField} from "./types";
+import type {IPluginOptionsInternal, YextDoc, YextPhotoField, YextManagementAPIRequestResponse} from "./types";
 
 const headers = {
   "Content-Type": `application/json`,
@@ -23,7 +23,7 @@ export async function fetchContent<T>(contentEndpoint: string, pluginOptions: IP
   return await response.json()
 }
 
-export async function fetchManagementApi(contentType: string, pluginOptions: IPluginOptionsInternal, pageToken = '') {
+export async function fetchManagementApi(contentType: string, pluginOptions: IPluginOptionsInternal, pageToken = '') : Promise<YextManagementAPIRequestResponse> {
   const { apiKey, accountId, apiVersion } = pluginOptions;
   const url = `https://api.yextapis.com/v2/accounts/${accountId}/${contentType}?api_key=${apiKey}&v=${apiVersion}${pluginOptions.pageLimit ? `&limit=${pluginOptions.pageLimit}` : ''}${pageToken ? `&pageToken=${pageToken}` : ''}`;
   const response = await fetch(url, {

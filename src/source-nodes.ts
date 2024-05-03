@@ -1,9 +1,13 @@
 import type { GatsbyNode, SourceNodesArgs } from "gatsby"
 import type { Reporter } from "gatsby-cli/lib/reporter/reporter";
 
-import { forEach, upperFirst } from "lodash"
+import { forEach, upperFirst, map } from "lodash"
 
-import type {IPluginOptionsInternal, YextContentEndpoint, YextDoc, YextEntityRequestResponse} from "./types";
+import type {
+    IPluginOptionsInternal,
+    YextContentEndpoint,
+    YextDoc, YextEntity, YextFolder
+} from "./types";
 import { fetchContent, fetchManagementApi } from "./utils";
 import { PLUGIN_NAME } from "./constants";
 
@@ -54,11 +58,20 @@ export const sourceNodes: GatsbyNode[`sourceNodes`] = async (gatsbyApi, pluginOp
 
 
     if (api === 'content-delivery') {
-        await Promise.all(forEach(endpoints, async (contentEndpoint) => {
-            await fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter);
+        await Promise.all(map(endpoints, (contentEndpoint) => {
+            return new Promise<void>(async (resolve) => {
+                await fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter);
+                resolve();
+            });
         }));
     } else {
-        await fetchContentFromManagementApi(gatsbyApi, pluginOptions, reporter);
+        const contentTypes = ['entities', 'folders'];
+        await Promise.all(map(contentTypes, (contentType) => {
+            return new Promise<void>(async (resolve) => {
+                await fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, reporter);
+                resolve();
+            });
+        }))
     }
 
     sourcingTimer.end();
@@ -111,7 +124,7 @@ async function fetchContentFromEndpoint(contentEndpoint: string, gatsbyApi: Sour
     sourcingTimer.end();
 }
 
-async function fetchContentFromManagementApi(gatsbyApi: SourceNodesArgs, pluginOptions: IPluginOptionsInternal, reporter: Reporter) {
+async function fetchContentFromManagementApi(contentType: string, gatsbyApi: SourceNodesArgs, pluginOptions: IPluginOptionsInternal, reporter: Reporter) {
     const { createNodeId, createContentDigest, actions } = gatsbyApi;
     const { createNode } = actions;
     const sourcingTimer = reporter.activityTimer(`${PLUGIN_NAME}: Fetching entities from Yext Management API`);
@@ -120,28 +133,40 @@ async function fetchContentFromManagementApi(gatsbyApi: SourceNodesArgs, pluginO
     let hasNextPage = true;
     let nextPageToken = null;
     while (hasNextPage) {
-        const response : YextEntityRequestResponse = await fetchManagementApi('entities', pluginOptions, nextPageToken);
+        const response = await fetchManagementApi(contentType, pluginOptions, nextPageToken);
         const { errors } = response.meta
         if (errors.length) {
-            reporter.panicOnBuild(`${PLUGIN_NAME}: Error fetching entities from Yext: ${errors[0].message}`)
+            reporter.panicOnBuild(`${PLUGIN_NAME}: Error fetching ${contentType} from Yext: ${errors[0].message}`)
             hasNextPage = false;
         } else {
-            const { entities, pageToken } = response.response
+            const { pageToken } = response.response
+            const contentNodes : YextFolder[] | YextEntity[] = response.response[contentType];
             if (!pageToken) {
                 hasNextPage = false;
             } else {
                 nextPageToken = pageToken;
             }
-            forEach(entities, (entity) => {
-                const nodeType = `Yext${upperFirst(entity.meta.entityType)}`;
+            forEach(contentNodes, (contentNode) => {
+                let data = {},
+                    nodeType : string,
+                    uniqueId : string;
+                if (contentType === 'entities') {
+                    nodeType = `Yext${upperFirst((contentNode as YextEntity).meta.entityType)}`;
+                    uniqueId = (contentNode as YextEntity).meta.id;
+                    data = (contentNode as YextEntity);
+                } else {
+                    nodeType = `YextFolder`;
+                    uniqueId = (contentNode as YextFolder).id;
+                    data = (contentNode as YextFolder);
+                }
                 const node = {
-                    ...entity,
-                    id: createNodeId(`${nodeType}-${entity.meta.id}`),
+                    ...data,
+                    id: createNodeId(`${nodeType}-${uniqueId}`),
                     parent: null,
                     children: [],
                     internal: {
                         type: nodeType,
-                        contentDigest: createContentDigest(entity),
+                        contentDigest: createContentDigest(data),
                     },
                 }
                 createNode(node);
