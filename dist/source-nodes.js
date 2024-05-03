@@ -118,7 +118,7 @@ function fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, re
     return __awaiter(this, void 0, void 0, function* () {
         const { createNodeId, createContentDigest, actions } = gatsbyApi;
         const { createNode } = actions;
-        const sourcingTimer = reporter.activityTimer(`${constants_1.PLUGIN_NAME}: Fetching entities from Yext Management API`);
+        const sourcingTimer = reporter.activityTimer(`${constants_1.PLUGIN_NAME}: Fetching ${contentType} from Yext Management API`);
         sourcingTimer.start();
         let hasNextPage = true;
         let nextPageToken = null;
@@ -148,7 +148,7 @@ function fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, re
                     else {
                         nodeType = `YextFolder`;
                         uniqueId = contentNode.id;
-                        data = contentNode;
+                        data = Object.assign(Object.assign({}, contentNode), { folderId: contentNode.id });
                     }
                     const node = Object.assign(Object.assign({}, data), { id: createNodeId(`${nodeType}-${uniqueId}`), parent: null, children: [], internal: {
                             type: nodeType,

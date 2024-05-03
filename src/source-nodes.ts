@@ -127,7 +127,7 @@ async function fetchContentFromEndpoint(contentEndpoint: string, gatsbyApi: Sour
 async function fetchContentFromManagementApi(contentType: string, gatsbyApi: SourceNodesArgs, pluginOptions: IPluginOptionsInternal, reporter: Reporter) {
     const { createNodeId, createContentDigest, actions } = gatsbyApi;
     const { createNode } = actions;
-    const sourcingTimer = reporter.activityTimer(`${PLUGIN_NAME}: Fetching entities from Yext Management API`);
+    const sourcingTimer = reporter.activityTimer(`${PLUGIN_NAME}: Fetching ${contentType} from Yext Management API`);
     sourcingTimer.start();
 
     let hasNextPage = true;
@@ -157,7 +157,10 @@ async function fetchContentFromManagementApi(contentType: string, gatsbyApi: Sou
                 } else {
                     nodeType = `YextFolder`;
                     uniqueId = (contentNode as YextFolder).id;
-                    data = (contentNode as YextFolder);
+                    data = {
+                        ...contentNode as YextFolder,
+                        folderId: (contentNode as YextFolder).id,
+                    };
                 }
                 const node = {
                     ...data,
