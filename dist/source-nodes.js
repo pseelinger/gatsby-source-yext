@@ -17,18 +17,14 @@ let isFirstSource = true;
 const sourceNodes = (gatsbyApi, pluginOptions) => __awaiter(void 0, void 0, void 0, function* () {
     const { reporter, actions, getNodes } = gatsbyApi;
     const { touchNode } = actions;
-    const { api, endpoints, apiKey, apiVersion, accountId } = pluginOptions;
+    const { entityTypes, apiKey, apiVersion, accountId } = pluginOptions;
     let hasRequiredOptions = true;
-    if (!api) {
-        reporter.panic(`${constants_1.PLUGIN_NAME}: Missing required option "api". Use either "management" or "content-delivery"`);
+    if (!entityTypes) {
+        reporter.panic(`${constants_1.PLUGIN_NAME}: Missing required option "entityTypes". See https://hitchhikers.yext.com/docs/managementapis/content/entities#operation/listEntities`);
         hasRequiredOptions = false;
     }
     if (!apiKey) {
         reporter.panic(`${constants_1.PLUGIN_NAME}: Missing required option "apiKey"`);
-        hasRequiredOptions = false;
-    }
-    if (api === 'content-delivery' && !endpoints) {
-        reporter.panic(`${constants_1.PLUGIN_NAME}: Missing required option "endpoints"`);
         hasRequiredOptions = false;
     }
     if (!apiVersion) {
@@ -53,67 +49,16 @@ const sourceNodes = (gatsbyApi, pluginOptions) => __awaiter(void 0, void 0, void
         });
         isFirstSource = false;
     }
-    if (api === 'content-delivery') {
-        yield Promise.all((0, lodash_1.map)(endpoints, (contentEndpoint) => {
-            return new Promise((resolve) => __awaiter(void 0, void 0, void 0, function* () {
-                yield fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter);
-                resolve();
-            }));
+    const contentTypes = ['entities', 'folders'];
+    yield Promise.all((0, lodash_1.map)(contentTypes, (contentType) => {
+        return new Promise((resolve) => __awaiter(void 0, void 0, void 0, function* () {
+            yield fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, reporter);
+            resolve();
         }));
-    }
-    else {
-        const contentTypes = ['entities', 'folders'];
-        yield Promise.all((0, lodash_1.map)(contentTypes, (contentType) => {
-            return new Promise((resolve) => __awaiter(void 0, void 0, void 0, function* () {
-                yield fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, reporter);
-                resolve();
-            }));
-        }));
-    }
+    }));
     sourcingTimer.end();
 });
 exports.sourceNodes = sourceNodes;
-function fetchContentFromEndpoint(contentEndpoint, gatsbyApi, pluginOptions, reporter) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const sourcingTimer = reporter.activityTimer(`${constants_1.PLUGIN_NAME}: Fetching items from Yext content endpoint: ${contentEndpoint}`);
-        sourcingTimer.start();
-        const { createNodeId, createContentDigest, actions } = gatsbyApi;
-        const { createNode } = actions;
-        let hasNextPage = true;
-        let pageToken = null;
-        while (hasNextPage) {
-            const response = yield (0, utils_1.fetchContent)(contentEndpoint, pluginOptions, pageToken);
-            const { errors } = response.meta;
-            if (errors.length) {
-                sourcingTimer.panicOnBuild(`${constants_1.PLUGIN_NAME}: Error fetching content from Yext: ${errors[0].message}`);
-                hasNextPage = false;
-            }
-            else {
-                const { docs, nextPageToken } = response.response;
-                if (nextPageToken) {
-                    pageToken = nextPageToken;
-                }
-                else {
-                    hasNextPage = false;
-                }
-                (0, lodash_1.forEach)(docs, (entity) => {
-                    var _a, _b;
-                    if (!((_b = (_a = entity.meta) === null || _a === void 0 ? void 0 : _a.entityType) === null || _b === void 0 ? void 0 : _b.id)) {
-                        reporter.warn(`${constants_1.PLUGIN_NAME}: Skipping entity missing entityType with id ${entity.id}. Did you include the "meta", "meta.entityType", and "meta.entityType.id" fields in your endpoint response?`);
-                        return;
-                    }
-                    const nodeType = `Yext${(0, lodash_1.upperFirst)(entity.meta.entityType.id)}`;
-                    const node = Object.assign(Object.assign({}, entity), { id: createNodeId(`${nodeType}-${entity.id}`), parent: null, children: [], internal: {
-                            type: nodeType,
-                            contentDigest: createContentDigest(entity),
-                        } });
-                    createNode(node);
-                });
-            }
-        }
-        sourcingTimer.end();
-    });
-}
 function fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, reporter) {
     return __awaiter(this, void 0, void 0, function* () {
         const { createNodeId, createContentDigest, actions } = gatsbyApi;
@@ -123,7 +68,13 @@ function fetchContentFromManagementApi(contentType, gatsbyApi, pluginOptions, re
         let hasNextPage = true;
         let nextPageToken = null;
         while (hasNextPage) {
-            const response = yield (0, utils_1.fetchManagementApi)(contentType, pluginOptions, nextPageToken);
+            let response;
+            if (contentType === 'entities') {
+                response = yield (0, utils_1.fetchContent)(pluginOptions, nextPageToken);
+            }
+            else {
+                response = yield (0, utils_1.fetchFolders)(pluginOptions, nextPageToken);
+            }
             const { errors } = response.meta;
             if (errors.length) {
                 reporter.panicOnBuild(`${constants_1.PLUGIN_NAME}: Error fetching ${contentType} from Yext: ${errors[0].message}`);

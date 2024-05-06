@@ -1,10 +1,5 @@
 import type {PluginOptions as GatsbyDefaultPluginOptions, IPluginRefOptions} from "gatsby"
 
-type YextEntityType = {
-    id: string,
-    uid: number
-}
-
 type YextEntityMeta = {
     id: string,
     accountId: string,
@@ -13,16 +8,6 @@ type YextEntityMeta = {
     countryCode: string,
     language: string,
     entityType: string,
-}
-
-type YextDocMeta = {
-    entityType: YextEntityType,
-    locale: string,
-}
-
-export type YextDoc = {
-    meta: YextDocMeta
-    id: string
 }
 
 export type YextEntity = {
@@ -35,7 +20,7 @@ export type YextFolder = {
     parentId: string,
 }
 
-type YextContentRequestError = {
+type YextEntityRequestError = {
     code: number,
     type: string,
     message: string,
@@ -44,13 +29,7 @@ type YextContentRequestError = {
 
 type YextEntityResponseMeta = {
     uuid: string,
-    errors: YextContentRequestError[],
-}
-
-type YextContentEndpointResponse = {
-    docs: YextDoc[]
-    count: number
-    nextPageToken?: string
+    errors: YextEntityRequestError[],
 }
 
 type YextEntityResponse = {
@@ -65,38 +44,15 @@ type YextFoldersResponse = {
     pageToken?: string
 }
 
-export type YextContentEndpoint = {
-    response: YextContentEndpointResponse
-    meta: YextEntityResponseMeta
-}
-
 export type YextManagementAPIRequestResponse = {
     response: YextEntityResponse | YextFoldersResponse
     meta: YextEntityResponseMeta
 }
-
-export type YextPhotoField = {
-    url: string,
-    sourceUrl?: string,
-    width: number,
-    height: number,
-}
-
-export type GatsbyYextEntity = {
-    id: string,
-    parent?: string,
-    children: string[],
-    internal: {
-        type: string,
-        contentDigest: string,
-    }
-}
 interface IPluginOptionsKeys {
     apiKey: string,
-    api: string,
     accountId: string,
     apiVersion: string,
-    endpoints: string[],
+    entityTypes: string[],
     pageLimit: number
 }
 
